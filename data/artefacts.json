@@ -1,0 +1,66 @@
+[
+  {
+    "id": "sting",
+    "name": "Sting",
+    "description": "The small blade that glows blue in darkness. Seven faithful days, and the darkness retreats.",
+    "emoji": "🗡️",
+    "unlock_condition": "streak",
+    "unlock_value": 7
+  },
+  {
+    "id": "phial-of-galadriel",
+    "name": "Phial of Galadriel",
+    "description": "A light when all other lights go out. Complete the Psalms track and carry this into the dark.",
+    "emoji": "💎",
+    "unlock_condition": "complete_campaign",
+    "unlock_value": 1
+  },
+  {
+    "id": "mithril-coat",
+    "name": "Mithril Coat",
+    "description": "Worth more than the Shire. Forged in fellowship — all members active in a single week.",
+    "emoji": "🛡️",
+    "unlock_condition": "fellowship_week",
+    "unlock_value": 1
+  },
+  {
+    "id": "the-one-ring",
+    "name": "The One Ring",
+    "description": "A burden and a prize. Complete a full campaign and bear what others could not.",
+    "emoji": "💍",
+    "unlock_condition": "complete_any_campaign",
+    "unlock_value": 1
+  },
+  {
+    "id": "glamdring",
+    "name": "Glamdring",
+    "description": "The Foe-hammer, sword of Gandalf. Reach level 5 and you carry the light of the Istari.",
+    "emoji": "⚔️",
+    "unlock_condition": "level",
+    "unlock_value": 5
+  },
+  {
+    "id": "anduril",
+    "name": "Andúril",
+    "description": "Reforged from the shards of Narsil. Thirty days of faithfulness, and the blade is remade.",
+    "emoji": "🔱",
+    "unlock_condition": "streak",
+    "unlock_value": 30
+  },
+  {
+    "id": "lembas-bread",
+    "name": "Lembas Bread",
+    "description": "One small bite fills the stomach of a grown man. Complete fifty daily habits — sustained beyond your own strength.",
+    "emoji": "🍞",
+    "unlock_condition": "total_habits",
+    "unlock_value": 50
+  },
+  {
+    "id": "the-silmarils",
+    "name": "The Silmarils",
+    "description": "The greatest treasures of Arda — light imprisoned in jewels. Complete every campaign and hold the light of the Trees.",
+    "emoji": "🌟",
+    "unlock_condition": "all_campaigns",
+    "unlock_value": 6
+  }
+]

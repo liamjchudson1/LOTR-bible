@@ -62,6 +62,10 @@ export interface DBQuest {
   reflection_prompt: string;
   xp_reward: number;
   memory_verse: string;
+  // Level gate — null means no requirement
+  min_level: number | null;
+  level_gate_title: string | null;
+  level_gate_description: string | null;
 }
 
 export interface DBUserProgress {
@@ -201,6 +205,35 @@ export interface QuestData {
   reflection_prompt: string;
   xp_reward: number;
   memory_verse: string;
+  min_level: number | null;
+  level_gate_title: string | null;
+  level_gate_description: string | null;
+}
+
+// ─── Map Movement ─────────────────────────────────────────────────────────────
+
+export interface MapPosition {
+  locationId: string;
+  x: number;
+  y: number;
+}
+
+export interface CharacterMovement {
+  from: MapPosition | null;
+  to: MapPosition;
+  isAnimating: boolean;
+}
+
+// ─── Level Gate ───────────────────────────────────────────────────────────────
+
+export interface LevelGateInfo {
+  minLevel: number;
+  gateTitle: string;
+  gateDescription: string;
+  /** Human-readable unlock hint e.g. "Reach level 4: Knight of Gondor" */
+  unlockHint: string;
+  xpRequired: number;
+  xpCurrent: number;
 }
 
 export interface XPEvent {

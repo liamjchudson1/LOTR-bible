@@ -1,0 +1,50 @@
+[
+  {
+    "id": "there-and-back-again",
+    "title": "There & Back Again",
+    "duration_days": 365,
+    "biblical_content": "Full Bible",
+    "lotr_arc": "Bilbo's journey — the unexpected calling, return, and rest",
+    "slug": "there-and-back-again"
+  },
+  {
+    "id": "the-fellowship",
+    "title": "The Fellowship",
+    "duration_days": 90,
+    "biblical_content": "New Testament",
+    "lotr_arc": "Fellowship forms, fractures, and holds — discipleship and community",
+    "slug": "the-fellowship"
+  },
+  {
+    "id": "the-long-defeat",
+    "title": "The Long Defeat",
+    "duration_days": 40,
+    "biblical_content": "Psalms & Job",
+    "lotr_arc": "Elven grief — faith that endures without seeing resolution",
+    "slug": "the-long-defeat"
+  },
+  {
+    "id": "return-of-the-king",
+    "title": "The Return of the King",
+    "duration_days": 30,
+    "biblical_content": "Revelation",
+    "lotr_arc": "The final war, the restoration, the arrival of the King",
+    "slug": "return-of-the-king"
+  },
+  {
+    "id": "wisdom-of-rivendell",
+    "title": "Wisdom of Rivendell",
+    "duration_days": 31,
+    "biblical_content": "Proverbs & Ecclesiastes",
+    "lotr_arc": "The counsel of Elrond — slow wisdom, long perspective",
+    "slug": "wisdom-of-rivendell"
+  },
+  {
+    "id": "the-rangers-road",
+    "title": "The Ranger's Road",
+    "duration_days": 60,
+    "biblical_content": "Epistles of Paul",
+    "lotr_arc": "Aragorn's hidden years — perseverance in unseen faithfulness",
+    "slug": "the-rangers-road"
+  }
+]

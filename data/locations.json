@@ -1,0 +1,182 @@
+[
+  {
+    "id": "loc-shire",
+    "name": "The Shire",
+    "map_x": 120,
+    "map_y": 340,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 1,
+    "description": "The quiet land of hobbits — comfortable, green, and utterly unprepared for the road ahead. Every great journey begins somewhere ordinary.",
+    "emoji": "🌿"
+  },
+  {
+    "id": "loc-bree",
+    "name": "Bree",
+    "map_x": 200,
+    "map_y": 300,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 2,
+    "description": "A crossroads town, part of two worlds. Here, Strider appears from the shadows — and nothing is as it seems.",
+    "emoji": "🏘️"
+  },
+  {
+    "id": "loc-weathertop",
+    "name": "Weathertop",
+    "map_x": 270,
+    "map_y": 270,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 3,
+    "description": "The ruins of Amon Sûl — a place of ancient watching, and of wounding. The road grows dangerous here.",
+    "emoji": "⚔️"
+  },
+  {
+    "id": "loc-rivendell",
+    "name": "Rivendell",
+    "map_x": 340,
+    "map_y": 230,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 4,
+    "description": "The Last Homely House east of the Sea. A place of healing, counsel, and the forging of unlikely fellowships.",
+    "emoji": "🏛️"
+  },
+  {
+    "id": "loc-moria",
+    "name": "Moria",
+    "map_x": 420,
+    "map_y": 290,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 5,
+    "description": "The vast Dwarven realm, dark and treacherous. The Fellowship must walk through what cannot be walked around.",
+    "emoji": "🕯️"
+  },
+  {
+    "id": "loc-lothlorien",
+    "name": "Lothlórien",
+    "map_x": 480,
+    "map_y": 330,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 6,
+    "description": "The Golden Wood — a place outside of time, held in the memory of the Elves. Rest here, and see clearly.",
+    "emoji": "✨"
+  },
+  {
+    "id": "loc-rauros",
+    "name": "Rauros",
+    "map_x": 530,
+    "map_y": 380,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 7,
+    "description": "The great falls where the Fellowship breaks. Loss is not failure. The mission continues.",
+    "emoji": "💧"
+  },
+  {
+    "id": "loc-fangorn",
+    "name": "Fangorn",
+    "map_x": 400,
+    "map_y": 380,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 14,
+    "description": "The ancient forest, old as memory. The Ents have been silent too long. There are voices that must finally speak.",
+    "emoji": "🌳"
+  },
+  {
+    "id": "loc-edoras",
+    "name": "Edoras",
+    "map_x": 370,
+    "map_y": 430,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 21,
+    "description": "The hall of the Horse-lords, half-asleep under a dark counsel. Kings can be restored. Nations can wake.",
+    "emoji": "🐎"
+  },
+  {
+    "id": "loc-helms-deep",
+    "name": "Helm's Deep",
+    "map_x": 340,
+    "map_y": 460,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 28,
+    "description": "The fortress where all seems lost at midnight. The dawn comes. It always comes.",
+    "emoji": "🏰"
+  },
+  {
+    "id": "loc-isengard",
+    "name": "Isengard",
+    "map_x": 320,
+    "map_y": 390,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 35,
+    "description": "The ruined ring of Saruman — industry turned to ruin. What is built against life does not last.",
+    "emoji": "⚙️"
+  },
+  {
+    "id": "loc-minas-tirith",
+    "name": "Minas Tirith",
+    "map_x": 490,
+    "map_y": 450,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 49,
+    "description": "The White City, the last great bastion. The King returns. The siege will not hold forever.",
+    "emoji": "🏯"
+  },
+  {
+    "id": "loc-mount-doom",
+    "name": "Mount Doom",
+    "map_x": 570,
+    "map_y": 430,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 77,
+    "description": "Orodruin — the fire where the Ring was forged, and where it must end. This is where the story was always going.",
+    "emoji": "🌋"
+  },
+  {
+    "id": "loc-grey-havens",
+    "name": "The Grey Havens",
+    "map_x": 80,
+    "map_y": 310,
+    "campaign_id": "the-fellowship",
+    "unlock_day": 90,
+    "description": "The shore from which some sail West. The ending is not an ending. The sea is not the end.",
+    "emoji": "⛵"
+  },
+  {
+    "id": "loc-sinai",
+    "name": "Mount Sinai",
+    "map_x": 300,
+    "map_y": 200,
+    "campaign_id": "the-long-defeat",
+    "unlock_day": 1,
+    "description": "The mountain of the Law, of encounter, of fire and cloud. God speaks from places that terrify.",
+    "emoji": "⛰️"
+  },
+  {
+    "id": "loc-wilderness",
+    "name": "The Wilderness",
+    "map_x": 380,
+    "map_y": 250,
+    "campaign_id": "the-long-defeat",
+    "unlock_day": 8,
+    "description": "Forty years of wandering, forty days of Psalms. The desert is not emptiness — it is formation.",
+    "emoji": "🏜️"
+  },
+  {
+    "id": "loc-valley-shadow",
+    "name": "Valley of the Shadow",
+    "map_x": 450,
+    "map_y": 320,
+    "campaign_id": "the-long-defeat",
+    "unlock_day": 20,
+    "description": "The dark valley of Psalm 23 — walked, not merely mentioned. The Shepherd goes through it with you.",
+    "emoji": "🌑"
+  },
+  {
+    "id": "loc-house-of-lord",
+    "name": "The House of the Lord",
+    "map_x": 350,
+    "map_y": 380,
+    "campaign_id": "the-long-defeat",
+    "unlock_day": 40,
+    "description": "The destination that was always real. Goodness and mercy follow all the days. You arrive.",
+    "emoji": "🕊️"
+  }
+]
