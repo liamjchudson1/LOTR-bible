@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,10 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useAuth } from '../_layout';
 import {
@@ -16,24 +20,31 @@ import {
   updateUserXPAndStreak,
   getCampaignQuest,
   getUserProgress,
+  saveJournalEntry,
+  getJournalEntry,
+  checkAndAwardArtefacts,
+  getTotalCompletedHabits,
+  getCompletedCampaignIds,
 } from '../../lib/supabase';
 import {
   cacheTodayQuest,
   getCachedTodayQuest,
   saveTodayHabits,
   getTodayHabits,
-  cacheUserProfile,
 } from '../../lib/storage';
-import { calculateDayXP, calculateStreakBonus, didLevelUp } from '../../lib/xp';
+import { calculateDayXP, calculateStreakBonus } from '../../lib/xp';
 import { calculateNewStreak, getTodayDateString, isStreakAlive } from '../../lib/streaks';
-import { QuestData, DailyHabits, HabitType, LocationData, DBUserProgress } from '../../lib/types';
+import { QuestData, DailyHabits, HabitType, LocationData, DBUserProgress, ArtefactData } from '../../lib/types';
 import { getLevelForXP } from '../../constants/levels';
+import { isQuestGated, getGateInfo } from '../../lib/levelGate';
 import { QuestCard } from '../../components/QuestCard';
 import { HabitsTracker } from '../../components/HabitsTracker';
 import { XPBar } from '../../components/XPBar';
+import { LevelGateCard } from '../../components/LevelGateCard';
 import { LoreUnlockModal, ArtefactUnlockModal } from '../../components/LoreUnlockModal';
 import { colors, typography, spacing, radius, shadows } from '../../constants/theme';
 import locationsData from '../../data/locations.json';
+import artefactsData from '../../data/artefacts.json';
 
 const DEFAULT_HABITS: DailyHabits = {
   read: false,
@@ -41,6 +52,8 @@ const DEFAULT_HABITS: DailyHabits = {
   memorise: false,
   reflect: false,
 };
+
+const ALL_ARTEFACTS = artefactsData as ArtefactData[];
 
 export default function HomeScreen() {
   const { user, refreshUser } = useAuth();
@@ -53,6 +66,11 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Journal modal
+  const [journalOpen, setJournalOpen] = useState(false);
+  const [journalDraft, setJournalDraft] = useState('');
+  const [journalSaved, setJournalSaved] = useState(false);
+
   // Modals
   const [locationUnlock, setLocationUnlock] = useState<LocationData | null>(null);
   const [artefactUnlock, setArtefactUnlock] = useState<{ name: string; emoji: string; description: string } | null>(null);
@@ -60,13 +78,12 @@ export default function HomeScreen() {
   const today = getTodayDateString();
   const race = user?.race ?? 'hobbit';
 
-  // ── Load data ─────────────────────────────────────────────────────────────
+  // ── Load data ──────────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
     if (!user?.campaign_id) return;
 
     try {
-      // Load progress
       let prog: DBUserProgress | null = null;
       try {
         prog = await getUserProgress(user.id, user.campaign_id);
@@ -93,18 +110,16 @@ export default function HomeScreen() {
 
       if (todayQuest) {
         setQuest(todayQuest);
-        // Find location
         const allLocations = locationsData as LocationData[];
         const loc = allLocations.find((l) => l.id === todayQuest!.lotr_location_id) ?? null;
         setLocation(loc);
       }
 
-      // Load today's habits from cache or server
+      // Load habits
       const cachedHabits = await getTodayHabits();
       if (cachedHabits) {
         setHabits(cachedHabits);
-        const xp = calculateDayXP(cachedHabits, race);
-        setXpEarnedToday(xp);
+        setXpEarnedToday(calculateDayXP(cachedHabits, race));
       } else if (todayQuest && user) {
         try {
           const completion = await getTodayCompletion(user.id, todayQuest.id, today);
@@ -123,6 +138,19 @@ export default function HomeScreen() {
           // offline
         }
       }
+
+      // Pre-load journal entry for today
+      if (todayQuest && user) {
+        try {
+          const existing = await getJournalEntry(user.id, todayQuest.id, today);
+          if (existing) {
+            setJournalDraft(existing);
+            setJournalSaved(true);
+          }
+        } catch {
+          // offline — skip
+        }
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -133,22 +161,60 @@ export default function HomeScreen() {
     loadData();
   }, [loadData]);
 
+  // ── Artefact check ────────────────────────────────────────────────────────
+
+  const checkArtefacts = useCallback(
+    async (updatedHabits: DailyHabits, newXP: number, newStreak: number) => {
+      if (!user) return;
+      try {
+        const [totalHabits, completedCampaignIds] = await Promise.all([
+          getTotalCompletedHabits(user.id),
+          getCompletedCampaignIds(user.id),
+        ]);
+
+        const habitsDoneThisCompletion = Object.values(updatedHabits).filter(Boolean).length;
+        const totalWithToday = totalHabits + habitsDoneThisCompletion;
+
+        const newlyUnlocked = await checkAndAwardArtefacts(user.id, {
+          streakCount: newStreak,
+          xp: newXP,
+          level: getLevelForXP(newXP).level,
+          totalHabits: totalWithToday,
+          completedCampaignIds,
+          fellowshipWeekActive: false, // TODO: check fellowship activity
+        });
+
+        if (newlyUnlocked.length > 0) {
+          const art = ALL_ARTEFACTS.find((a) => a.id === newlyUnlocked[0]);
+          if (art) {
+            setArtefactUnlock({ name: art.name, emoji: art.emoji, description: art.description });
+          }
+        }
+      } catch {
+        // non-critical — silently skip
+      }
+    },
+    [user],
+  );
+
   // ── Toggle habit ──────────────────────────────────────────────────────────
 
   const handleHabitToggle = useCallback(
     async (habit: HabitType) => {
       if (!user || !quest) return;
 
+      // Reflect habit: open journal modal instead of toggling immediately
+      if (habit === 'reflect' && !habits.reflect) {
+        setJournalOpen(true);
+        return;
+      }
+
       const newHabits = { ...habits, [habit]: !habits[habit] };
       setHabits(newHabits);
-
       const newXP = calculateDayXP(newHabits, race);
       setXpEarnedToday(newXP);
-
-      // Save locally
       await saveTodayHabits(newHabits);
 
-      // Persist to server
       try {
         await upsertDailyCompletion({
           user_id: user.id,
@@ -161,32 +227,91 @@ export default function HomeScreen() {
           xp_earned: newXP,
         });
 
-        // Update user XP and streak
         const newStreak = calculateNewStreak(user.streak_count, user.last_active_date);
         const streakBonus = calculateStreakBonus(newStreak, race);
         const totalXP = (user.xp ?? 0) + newXP + streakBonus;
-
         const oldLevel = getLevelForXP(user.xp ?? 0).level;
         const newLevel = getLevelForXP(totalXP).level;
 
         await updateUserXPAndStreak(user.id, totalXP, newStreak, today);
         await refreshUser();
 
-        // Level up notification
         if (newLevel > oldLevel) {
           const levelData = getLevelForXP(totalXP);
           Alert.alert(
             '✦ Level Up! ✦',
             `You have become: ${levelData.title}\n\n"${levelData.description}"`,
-            [{ text: 'Excellent', style: 'default' }]
+            [{ text: 'Excellent', style: 'default' }],
           );
         }
+
+        await checkArtefacts(newHabits, totalXP, newStreak);
       } catch (e) {
         console.warn('Failed to sync habit:', e);
       }
     },
-    [user, quest, habits, race, today, refreshUser]
+    [user, quest, habits, race, today, refreshUser, checkArtefacts],
   );
+
+  // ── Journal actions ───────────────────────────────────────────────────────
+
+  const handleJournalSave = useCallback(async () => {
+    if (!user || !quest || !journalDraft.trim()) return;
+    try {
+      await saveJournalEntry({ user_id: user.id, quest_id: quest.id, date: today, body: journalDraft.trim() });
+      setJournalSaved(true);
+    } catch {
+      // offline — entry saved to state anyway
+    }
+    // Mark reflect as done
+    const newHabits = { ...habits, reflect: true };
+    setHabits(newHabits);
+    const newXP = calculateDayXP(newHabits, race);
+    setXpEarnedToday(newXP);
+    await saveTodayHabits(newHabits);
+    setJournalOpen(false);
+    try {
+      await upsertDailyCompletion({
+        user_id: user.id, quest_id: quest.id, date: today,
+        read_done: newHabits.read, pray_done: newHabits.pray,
+        memorise_done: newHabits.memorise, reflect_done: true, xp_earned: newXP,
+      });
+      const newStreak = calculateNewStreak(user.streak_count, user.last_active_date);
+      const streakBonus = calculateStreakBonus(newStreak, race);
+      const totalXP = (user.xp ?? 0) + newXP + streakBonus;
+      await updateUserXPAndStreak(user.id, totalXP, newStreak, today);
+      await refreshUser();
+      await checkArtefacts(newHabits, totalXP, newStreak);
+    } catch {
+      // offline
+    }
+  }, [user, quest, today, journalDraft, habits, race, refreshUser, checkArtefacts]);
+
+  const handleJournalSkip = useCallback(async () => {
+    if (!user || !quest) return;
+    setJournalOpen(false);
+    // Mark reflect done without saving journal
+    const newHabits = { ...habits, reflect: true };
+    setHabits(newHabits);
+    const newXP = calculateDayXP(newHabits, race);
+    setXpEarnedToday(newXP);
+    await saveTodayHabits(newHabits);
+    try {
+      await upsertDailyCompletion({
+        user_id: user.id, quest_id: quest.id, date: today,
+        read_done: newHabits.read, pray_done: newHabits.pray,
+        memorise_done: newHabits.memorise, reflect_done: true, xp_earned: newXP,
+      });
+      const newStreak = calculateNewStreak(user.streak_count, user.last_active_date);
+      const streakBonus = calculateStreakBonus(newStreak, race);
+      const totalXP = (user.xp ?? 0) + newXP + streakBonus;
+      await updateUserXPAndStreak(user.id, totalXP, newStreak, today);
+      await refreshUser();
+      await checkArtefacts(newHabits, totalXP, newStreak);
+    } catch {
+      // offline
+    }
+  }, [user, quest, today, habits, race, refreshUser, checkArtefacts]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -194,6 +319,10 @@ export default function HomeScreen() {
 
   const streakAlive = isStreakAlive(user.last_active_date);
   const currentDay = progress?.current_day ?? 1;
+  const userLevel = getLevelForXP(user.xp ?? 0).level;
+
+  // Level gate check
+  const gateInfo = quest ? getGateInfo(quest, userLevel, user.xp ?? 0) : null;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -203,10 +332,7 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={() => {
-              setIsRefreshing(true);
-              loadData();
-            }}
+            onRefresh={() => { setIsRefreshing(true); loadData(); }}
             tintColor={colors.gold}
           />
         }
@@ -232,14 +358,19 @@ export default function HomeScreen() {
           <XPBar xp={user.xp ?? 0} />
         </View>
 
-        {/* Quest card */}
+        {/* Quest card — or level gate — or loading/empty state */}
         {quest ? (
           <View style={styles.section}>
-            <QuestCard
-              quest={quest}
-              location={location}
-              dayNumber={currentDay}
-            />
+            {gateInfo ? (
+              <LevelGateCard
+                gate={gateInfo}
+                locationEmoji={location?.emoji ?? '📍'}
+                locationName={location?.name ?? ''}
+                onGoToHabits={() => {/* habits are below — user can scroll */}}
+              />
+            ) : (
+              <QuestCard quest={quest} location={location} dayNumber={currentDay} />
+            )}
           </View>
         ) : isLoading ? (
           <View style={styles.loadingCard}>
@@ -254,7 +385,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Habits tracker */}
+        {/* Habits tracker — always shown when quest loaded, even if gated */}
         {quest && (
           <View style={styles.section}>
             <HabitsTracker
@@ -280,7 +411,7 @@ export default function HomeScreen() {
             </Text>
             <View style={styles.progressDayRow}>
               <Text style={styles.progressDayText}>
-                Day {currentDay} of {quest ? '90' : '?'}
+                Day {currentDay} of {progress ? String(progress.campaign_id === 'the-fellowship' ? 90 : '?') : '?'}
               </Text>
             </View>
           </View>
@@ -289,7 +420,59 @@ export default function HomeScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Modals */}
+      {/* ── Journal Modal ─────────────────────────────────────────── */}
+      <Modal visible={journalOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setJournalOpen(false)}>
+        <KeyboardAvoidingView
+          style={styles.journalRoot}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.journalHeader}>
+            <Text style={styles.journalTitle}>Reflect</Text>
+            <TouchableOpacity onPress={() => setJournalOpen(false)} hitSlop={12}>
+              <Text style={styles.journalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.journalScroll} contentContainerStyle={styles.journalContent}>
+            {quest?.reflection_prompt ? (
+              <View style={styles.promptBox}>
+                <Text style={styles.promptLabel}>Today's question</Text>
+                <Text style={styles.promptText}>{quest.reflection_prompt}</Text>
+              </View>
+            ) : null}
+
+            <TextInput
+              style={styles.journalInput}
+              multiline
+              placeholder="Write your reflection here..."
+              placeholderTextColor={colors.parchmentMuted + '60'}
+              value={journalDraft}
+              onChangeText={setJournalDraft}
+              textAlignVertical="top"
+              autoFocus={!journalSaved}
+            />
+
+            {journalSaved && (
+              <Text style={styles.journalSavedNote}>Entry saved for today.</Text>
+            )}
+          </ScrollView>
+
+          <View style={styles.journalActions}>
+            <TouchableOpacity style={styles.journalSkip} onPress={handleJournalSkip}>
+              <Text style={styles.journalSkipText}>Skip — mark done</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.journalSave, !journalDraft.trim() && styles.journalSaveDisabled]}
+              onPress={handleJournalSave}
+              disabled={!journalDraft.trim()}
+            >
+              <Text style={styles.journalSaveText}>Save & complete</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Other modals ──────────────────────────────────────────── */}
       <LoreUnlockModal
         visible={!!locationUnlock}
         location={locationUnlock}
@@ -318,11 +501,7 @@ function getGreeting(): string {
 }
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
 const styles = StyleSheet.create({
@@ -361,17 +540,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  streakEmoji: {
-    fontSize: 18,
-  },
+  streakEmoji: { fontSize: 18 },
   streakCount: {
     fontSize: typography.lg,
     fontWeight: typography.bold,
     color: colors.gold,
   },
-  streakCountInactive: {
-    color: colors.parchmentMuted,
-  },
+  streakCountInactive: { color: colors.parchmentMuted },
   xpSection: {
     marginBottom: spacing.base,
     backgroundColor: colors.card,
@@ -380,9 +555,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  section: {
-    marginBottom: spacing.base,
-  },
+  section: { marginBottom: spacing.base },
   loadingCard: {
     backgroundColor: colors.card,
     borderRadius: radius.lg,
@@ -392,10 +565,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginBottom: spacing.base,
   },
-  loadingText: {
-    color: colors.parchmentMuted,
-    fontSize: typography.base,
-  },
+  loadingText: { color: colors.parchmentMuted, fontSize: typography.base },
   emptyCard: {
     backgroundColor: colors.card,
     borderRadius: radius.lg,
@@ -449,17 +619,114 @@ const styles = StyleSheet.create({
     color: colors.parchmentMuted,
     lineHeight: 20,
     marginBottom: spacing.sm,
+  },
+  progressDayRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  progressDayText: { fontSize: typography.xs, color: colors.parchmentMuted },
+  bottomSpacer: { height: spacing['3xl'] },
+
+  // ── Journal modal styles ───────────────────────────────────────────────────
+  journalRoot: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  journalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.base,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.base,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  journalTitle: {
+    fontSize: typography.xl,
+    fontWeight: typography.bold,
+    color: colors.parchment,
+  },
+  journalClose: {
+    fontSize: typography.base,
+    color: colors.parchmentMuted,
+    padding: spacing.xs,
+  },
+  journalScroll: { flex: 1 },
+  journalContent: {
+    padding: spacing.base,
+    gap: spacing.base,
+  },
+  promptBox: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.base,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.gold,
+  },
+  promptLabel: {
+    fontSize: typography.xs,
+    color: colors.gold,
+    fontWeight: typography.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  promptText: {
+    fontSize: typography.sm,
+    color: colors.parchmentMuted,
+    lineHeight: 21,
     fontStyle: 'italic',
   },
-  progressDayRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+  journalInput: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.base,
+    color: colors.parchment,
+    fontSize: typography.base,
+    lineHeight: 24,
+    minHeight: 180,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  progressDayText: {
+  journalSavedNote: {
     fontSize: typography.xs,
     color: colors.parchmentMuted,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
-  bottomSpacer: {
-    height: spacing.xl,
+  journalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.base,
+    paddingBottom: spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  journalSkip: {
+    flex: 1,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  journalSkipText: {
+    color: colors.parchmentMuted,
+    fontSize: typography.sm,
+  },
+  journalSave: {
+    flex: 2,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    backgroundColor: colors.gold + '20',
+    borderWidth: 1,
+    borderColor: colors.gold + '60',
+    alignItems: 'center',
+  },
+  journalSaveDisabled: {
+    opacity: 0.4,
+  },
+  journalSaveText: {
+    color: colors.gold,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
 });

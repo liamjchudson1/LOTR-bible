@@ -173,6 +173,40 @@ insert into quests (id, campaign_id, day_number, title, lotr_location_id, script
   )
 on conflict (campaign_id, day_number) do nothing;
 
+-- ─── Level Gates (applied on top of quest inserts) ───────────────────────────
+-- Days 5 and 7 have gates from the initial Fellowship seed above.
+-- Days 28, 49, and 77 will be set when those quests are inserted.
+
+update quests set
+  min_level = 2,
+  level_gate_title = 'The Mines Demand More',
+  level_gate_description = 'Moria is not merely dark — it is old, and it remembers. The cave troll does not yield to those still finding their footing. Before you descend, you must be a Traveller: someone who has shown they can carry the road. Keep walking until you are.'
+where id = 'fellowship-day-5';
+
+update quests set
+  min_level = 3,
+  level_gate_title = 'The Breaking Cannot Be Rushed',
+  level_gate_description = 'At Rauros, the Fellowship does not simply scatter — it chooses. Boromir falls. Frodo goes alone. This is not a moment for the new. Only a Ranger of the North has learned enough about faithfulness under pressure to understand what is actually happening here — and why it had to.'
+where id = 'fellowship-day-7';
+
+update quests set
+  min_level = 4,
+  level_gate_title = 'The Wall Holds Only the Sworn',
+  level_gate_description = 'Helm''s Deep is fought by people who have no reason for hope except duty. You cannot stand at that wall unless you have sworn something — unless your faithfulness has been tested and held. A Knight of Gondor does not fight because they expect to win. They fight because they were made to stand.'
+where id = 'fellowship-day-28';
+
+update quests set
+  min_level = 5,
+  level_gate_title = 'The Beacons Are Not For Everyone',
+  level_gate_description = 'The beacons of Gondor call for riders — not wanderers. The Siege of Minas Tirith is a chapter that rewards those who have answered smaller calls faithfully. A Rider of Rohan doesn''t wait to feel ready. But they have already learned to ride.'
+where id = 'fellowship-day-49';
+
+update quests set
+  min_level = 7,
+  level_gate_title = 'Only the Loremaster Carries This',
+  level_gate_description = 'Mount Doom is not a place of triumph. It is a place of exhaustion, temptation, and a mercy that neither Frodo nor Gollum understood. You cannot walk into Orodruin''s fire unless you have sat long enough in the Word to know what it costs to carry something all the way to the end. The Loremaster''s road leads here. Not the hero''s.'
+where id = 'fellowship-day-77';
+
 -- ─── Artefacts ────────────────────────────────────────────────────────────────
 
 insert into artefacts (id, name, description, emoji, unlock_condition, unlock_value) values

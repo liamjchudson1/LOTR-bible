@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../_layout';
-import { signOut, getUserArtefacts, getUserProgress } from '../../lib/supabase';
+import { signOut, getUserArtefacts, getUserProgress, startCampaign, upsertUserProfile } from '../../lib/supabase';
 import { clearAllStorage } from '../../lib/storage';
 import { XPBar } from '../../components/XPBar';
 import { ArtefactGrid } from '../../components/ArtefactCard';
@@ -51,6 +51,8 @@ export default function ProfileScreen() {
   const [progress, setProgress] = useState<DBUserProgress | null>(null);
   const [selectedArtefact, setSelectedArtefact] = useState<ArtefactData | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [changeCampaignOpen, setChangeCampaignOpen] = useState(false);
+  const [isChangingCampaign, setIsChangingCampaign] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -73,6 +75,36 @@ export default function ProfileScreen() {
     }
     load();
   }, [user]);
+
+  async function handleChangeCampaign(campaignId: string) {
+    if (!user || campaignId === user.campaign_id) {
+      setChangeCampaignOpen(false);
+      return;
+    }
+    Alert.alert(
+      'Change campaign?',
+      'Your progress in this campaign will be saved, but you will start fresh on the new one.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Switch',
+          onPress: async () => {
+            setIsChangingCampaign(true);
+            try {
+              await startCampaign(user.id, campaignId);
+              await upsertUserProfile({ id: user.id, email: user.email, campaign_id: campaignId });
+              await refreshUser();
+              setChangeCampaignOpen(false);
+            } catch (e: any) {
+              Alert.alert('Error', e?.message ?? 'Failed to switch campaign.');
+            } finally {
+              setIsChangingCampaign(false);
+            }
+          },
+        },
+      ]
+    );
+  }
 
   async function handleSignOut() {
     Alert.alert(
@@ -205,6 +237,14 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        {/* Change campaign */}
+        <TouchableOpacity
+          style={styles.changeCampaignButton}
+          onPress={() => setChangeCampaignOpen(true)}
+        >
+          <Text style={styles.changeCampaignText}>Change campaign</Text>
+        </TouchableOpacity>
+
         {/* Race bonus */}
         <View style={styles.bonusCard}>
           <Text style={styles.bonusTitle}>Your Race Bonus</Text>
@@ -240,6 +280,45 @@ export default function ProfileScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Campaign switching modal */}
+      <Modal
+        visible={changeCampaignOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setChangeCampaignOpen(false)}
+      >
+        <SafeAreaView style={styles.campaignModalRoot}>
+          <View style={styles.campaignModalHeader}>
+            <Text style={styles.campaignModalTitle}>Choose a campaign</Text>
+            <TouchableOpacity onPress={() => setChangeCampaignOpen(false)} hitSlop={12}>
+              <Text style={styles.journalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={styles.campaignModalList}>
+            {ALL_CAMPAIGNS.map((c) => {
+              const isActive = c.id === user?.campaign_id;
+              return (
+                <TouchableOpacity
+                  key={c.id}
+                  style={[styles.campaignOption, isActive && styles.campaignOptionActive]}
+                  onPress={() => handleChangeCampaign(c.id)}
+                  disabled={isChangingCampaign}
+                >
+                  <View style={styles.campaignOptionHeader}>
+                    <Text style={[styles.campaignOptionTitle, isActive && styles.campaignOptionTitleActive]}>
+                      {c.title}
+                    </Text>
+                    {isActive && <Text style={styles.campaignActiveBadge}>Current</Text>}
+                  </View>
+                  <Text style={styles.campaignOptionContent}>{c.biblical_content} · {c.duration_days} days</Text>
+                  <Text style={styles.campaignOptionArc} numberOfLines={2}>{c.lotr_arc}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
 
       {/* Artefact detail modal */}
       <Modal
@@ -612,5 +691,95 @@ const styles = StyleSheet.create({
     fontSize: typography.base,
     color: colors.parchmentMuted,
     fontWeight: typography.medium,
+  },
+
+  // Campaign switching
+  changeCampaignButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 2,
+    alignItems: 'center',
+    marginBottom: spacing.base,
+  },
+  changeCampaignText: {
+    color: colors.parchmentMuted,
+    fontSize: typography.sm,
+  },
+  campaignModalRoot: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  campaignModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.base,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.base,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  campaignModalTitle: {
+    fontSize: typography.xl,
+    fontWeight: typography.bold,
+    color: colors.parchment,
+  },
+  journalClose: {
+    fontSize: typography.base,
+    color: colors.parchmentMuted,
+    padding: spacing.xs,
+  },
+  campaignModalList: {
+    padding: spacing.base,
+    gap: spacing.sm,
+  },
+  campaignOption: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.base,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  campaignOptionActive: {
+    borderColor: colors.gold + '60',
+    backgroundColor: '#1C1A0E',
+  },
+  campaignOptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  campaignOptionTitle: {
+    fontSize: typography.base,
+    fontWeight: typography.bold,
+    color: colors.parchment,
+    flex: 1,
+  },
+  campaignOptionTitleActive: {
+    color: colors.goldLight,
+  },
+  campaignActiveBadge: {
+    fontSize: typography.xs,
+    color: colors.gold,
+    fontWeight: typography.semibold,
+    backgroundColor: colors.gold + '18',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+  },
+  campaignOptionContent: {
+    fontSize: typography.xs,
+    color: colors.parchmentMuted,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  campaignOptionArc: {
+    fontSize: typography.sm,
+    color: colors.parchmentMuted,
+    lineHeight: 19,
+    fontStyle: 'italic',
   },
 });

@@ -194,3 +194,116 @@ export async function saveJournalEntry(entry: {
   if (error) throw error;
   return data;
 }
+
+export async function getJournalEntry(
+  userId: string,
+  questId: string,
+  date: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('journal_entries')
+    .select('body')
+    .eq('user_id', userId)
+    .eq('quest_id', questId)
+    .eq('date', date)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.body ?? null;
+}
+
+// ─── Artefact Unlocking ───────────────────────────────────────────────────────
+
+export async function getTotalCompletedHabits(userId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('daily_completions')
+    .select('read_done, pray_done, memorise_done, reflect_done')
+    .eq('user_id', userId);
+  if (error) throw error;
+  if (!data) return 0;
+  return data.reduce((sum, row) => {
+    return (
+      sum +
+      (row.read_done ? 1 : 0) +
+      (row.pray_done ? 1 : 0) +
+      (row.memorise_done ? 1 : 0) +
+      (row.reflect_done ? 1 : 0)
+    );
+  }, 0);
+}
+
+export async function getCompletedCampaignIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('user_progress')
+    .select('campaign_id')
+    .eq('user_id', userId)
+    .not('completed_at', 'is', null);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.campaign_id);
+}
+
+/**
+ * Checks all artefact unlock conditions against the provided stats, awards any
+ * newly-earned artefacts, and returns the IDs of what was just unlocked.
+ * Safe to call repeatedly — already-earned artefacts are skipped.
+ */
+export async function checkAndAwardArtefacts(
+  userId: string,
+  stats: {
+    streakCount: number;
+    xp: number;
+    level: number;
+    totalHabits: number;
+    completedCampaignIds: string[];
+    fellowshipWeekActive: boolean;
+  },
+): Promise<string[]> {
+  // Load all artefacts and what the user already has
+  const [{ data: allArts, error: e1 }, { data: earnedArts, error: e2 }] = await Promise.all([
+    supabase.from('artefacts').select('id, unlock_condition, unlock_value'),
+    supabase.from('user_artefacts').select('artefact_id').eq('user_id', userId),
+  ]);
+  if (e1 || e2) return [];
+
+  const earnedIds = new Set((earnedArts ?? []).map((r) => r.artefact_id));
+  const toAward: string[] = [];
+
+  for (const art of allArts ?? []) {
+    if (earnedIds.has(art.id)) continue;
+
+    let qualifies = false;
+    switch (art.unlock_condition) {
+      case 'streak':
+        qualifies = stats.streakCount >= art.unlock_value;
+        break;
+      case 'level':
+        qualifies = stats.level >= art.unlock_value;
+        break;
+      case 'total_habits':
+        qualifies = stats.totalHabits >= art.unlock_value;
+        break;
+      case 'complete_campaign':
+        qualifies = stats.completedCampaignIds.includes('the-long-defeat');
+        break;
+      case 'complete_any_campaign':
+        qualifies = stats.completedCampaignIds.length >= 1;
+        break;
+      case 'all_campaigns':
+        qualifies = stats.completedCampaignIds.length >= art.unlock_value;
+        break;
+      case 'fellowship_week':
+        qualifies = stats.fellowshipWeekActive;
+        break;
+    }
+
+    if (qualifies) toAward.push(art.id);
+  }
+
+  if (toAward.length === 0) return [];
+
+  const { error: insertError } = await supabase.from('user_artefacts').insert(
+    toAward.map((artefact_id) => ({ user_id: userId, artefact_id })),
+  );
+  if (insertError) return [];
+
+  return toAward;
+}
